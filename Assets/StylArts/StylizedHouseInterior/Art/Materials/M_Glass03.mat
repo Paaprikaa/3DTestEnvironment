@@ -25,7 +25,8 @@ Material:
     type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
+  m_ValidKeywords:
+  - _SURFACE_TYPE_TRANSPARENT
   m_InvalidKeywords:
   - _DISABLE_SSR_TRANSPARENT
   - _ENABLE_FOG_ON_TRANSPARENT
@@ -36,13 +37,14 @@ Material:
   m_CustomRenderQueue: 3000
   stringTagMap:
     MotionVector: User
-    RenderType: Opaque
+    RenderType: Transparent
   disabledShaderPasses:
   - MOTIONVECTORS
   - TransparentDepthPrepass
   - TransparentDepthPostpass
   - TransparentBackface
   - RayTracingPrepass
+  - DepthOnly
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
@@ -68,8 +70,8 @@ Material:
     - Vector1_01e874f3d25648ecb33ccd7ce327b48a: 0.4
     - Vector1_041c87a404c84c26ab4e384d3f4bc7ac: 0
     - Vector1_1981a28ffa024c7dbafabc86c73aa805: 0.3
-    - Vector1_50fbc258b93c4f7ba8621d4d87d33e9c: 1
-    - Vector1_835cc90d1cb94fa7b4cd0cb0879d0615: 1
+    - Vector1_50fbc258b93c4f7ba8621d4d87d33e9c: 0.458
+    - Vector1_835cc90d1cb94fa7b4cd0cb0879d0615: 1.48
     - Vector1_b827869c21a34503bd57cbca845b11a4: 0.3
     - _AddPrecomputedVelocity: 0
     - _AlphaClip: 0
@@ -80,6 +82,7 @@ Material:
     - _AlphaToMaskInspectorValue: 0
     - _Blend: 0
     - _BlendMode: 0
+    - _BlendModePreserveSpecular: 0
     - _CastShadows: 1
     - _Cull: 2
     - _CullMode: 2
@@ -87,7 +90,8 @@ Material:
     - _DepthOffsetEnable: 0
     - _DoubleSidedEnable: 0
     - _DoubleSidedNormalMode: 2
-    - _DstBlend: 0
+    - _DstBlend: 10
+    - _DstBlendAlpha: 10
     - _EnableBlendModePreserveSpecularLighting: 0
     - _EnableFogOnTransparent: 1
     - _OpaqueCullMode: 2
@@ -100,7 +104,8 @@ Material:
     - _RefractionModel: 3
     - _RenderQueueType: 4
     - _RequireSplitLighting: 0
-    - _SrcBlend: 1
+    - _SrcBlend: 5
+    - _SrcBlendAlpha: 1
     - _StencilRef: 0
     - _StencilRefDepth: 0
     - _StencilRefDistortionVec: 4
@@ -112,7 +117,7 @@ Material:
     - _StencilWriteMaskGBuffer: 14
     - _StencilWriteMaskMV: 40
     - _SupportDecals: 1
-    - _Surface: 0
+    - _Surface: 1
     - _SurfaceType: 1
     - _TransparentBackfaceEnable: 0
     - _TransparentCullMode: 2
@@ -127,7 +132,7 @@ Material:
     - _ZTestDepthEqualForOpaque: 4
     - _ZTestGBuffer: 4
     - _ZTestTransparent: 4
-    - _ZWrite: 1
+    - _ZWrite: 0
     - _ZWriteControl: 0
     m_Colors:
     - Color_1: {r: 0.627451, g: 0.7137255, b: 0.7372549, a: 0}
