@@ -58,5 +58,4 @@ public class FPSDisplay : MonoBehaviour
         fpsList.Add(fps);
     }
 
-
 }

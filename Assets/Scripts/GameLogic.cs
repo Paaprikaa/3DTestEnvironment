@@ -25,6 +25,7 @@ public class GameLogic : MonoBehaviour
     {
         _director.stopped -= OnTimelineStopped;
     }
+    
     private void OnTimelineStopped(PlayableDirector director)
     {
         string fpsListString = "[" + string.Join(",", FPSDisplay.Instance.fpsList) + "]";
