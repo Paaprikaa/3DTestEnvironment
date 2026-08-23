@@ -11901,7 +11901,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &366420992
 Transform:
   m_ObjectHideFlags: 0
@@ -74077,6 +74077,13 @@ MonoBehaviour:
   timeText: {fileID: 7518124756850899931}
   pollingTime: 0.1
   fpsList: []
+  drawCallsList: 
+  batchesList: 
+  setPassCallsList: 
+  trianglesList: 
+  verticesList: 
+  mainThreadMsList: []
+  gcReservedMemoryList: 
 --- !u!4 &5874954241949929883
 Transform:
   m_ObjectHideFlags: 0
