@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using UnityEngine;
 using UnityEngine.Playables;
 
@@ -12,7 +13,7 @@ public class GameLogic : MonoBehaviour
     {
         _buttonStart.SetActive(false);
         Debug.Log(Application.persistentDataPath);
-        FPSDisplay.Instance.StartClock();
+        DataCollecter.Instance.StartClock();
         _director.Play();
     }
 
@@ -25,12 +26,18 @@ public class GameLogic : MonoBehaviour
     {
         _director.stopped -= OnTimelineStopped;
     }
+
     private void OnTimelineStopped(PlayableDirector director)
     {
-        string fpsListString = "[" + string.Join(",", FPSDisplay.Instance.fpsList) + "]";
-        System.IO.File.WriteAllText(Application.persistentDataPath + "/FPS_" + DateTime.Now.ToString("dd.MM.yyyy_HH-mm-ss") + ".txt", fpsListString);
+        DataCollecter.Instance.StopClock();
 
-        FPSDisplay.Instance.StopClock();
+        string fileName = "SessionData_" + DateTime.Now.ToString("dd.MM.yyyy_HH-mm-ss") + ".json";
+        string filePath = Path.Combine(Application.persistentDataPath, fileName);
+
+        DataCollecter.Instance.SaveToJsonFile(filePath);
+
+        Debug.Log("Data saved: " + filePath);
+
         _buttonStart.SetActive(true);
     }
 }

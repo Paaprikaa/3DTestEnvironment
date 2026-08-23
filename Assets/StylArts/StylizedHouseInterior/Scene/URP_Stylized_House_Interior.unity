@@ -2818,6 +2818,10 @@ PrefabInstance:
       propertyPath: m_StaticEditorFlags
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1030987342, guid: abc00000000001179670640414874669, type: 3}
+      propertyPath: m_StaticShadowCaster
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 1030987344, guid: abc00000000001179670640414874669, type: 3}
       propertyPath: m_StaticEditorFlags
       value: 0
