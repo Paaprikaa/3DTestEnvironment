@@ -22,6 +22,9 @@ public class MeshAtlasCombinerEditor : Editor
         // UV Rectangle assigned on atlas (after packing)
         public Vector2 uvScale;
         public Vector2 uvOffset;
+
+        // Key identifying the unique texture set (for deduplication)
+        public string textureKey;
     }
 
     public override void OnInspectorGUI()
@@ -55,8 +58,29 @@ public class MeshAtlasCombinerEditor : Editor
 
         EnsureFolder(combiner.outputFolder);
 
-        // Calculate atlas grid and assign uv rect
-        int gridDim = Mathf.CeilToInt(Mathf.Sqrt(sources.Count));
+        // Deduplicate texture sets: group sources that share the same 3 textures
+        // so they occupy a single cell in the atlas instead of duplicating pixels.
+        List<SourceObject> uniqueTextureSources = new List<SourceObject>();
+        Dictionary<string, int> textureKeyToSlot = new Dictionary<string, int>();
+
+        foreach (SourceObject src in sources)
+        {
+            if (!textureKeyToSlot.ContainsKey(src.textureKey))
+            {
+                textureKeyToSlot[src.textureKey] = uniqueTextureSources.Count;
+                uniqueTextureSources.Add(src);
+            }
+        }
+
+        int uniqueCount = uniqueTextureSources.Count;
+        int deduplicatedCount = sources.Count - uniqueCount;
+        if (deduplicatedCount > 0)
+        {
+            Debug.Log($"MeshAtlasCombiner: {sources.Count} sources share {uniqueCount} unique texture sets ({deduplicatedCount} deduplicated).", combiner);
+        }
+
+        // Calculate atlas grid based on unique texture count (not total source count)
+        int gridDim = Mathf.CeilToInt(Mathf.Sqrt(uniqueCount));
         int cellPixel = combiner.atlasSize / gridDim;
         int contentPixel = cellPixel - combiner.paddingPixels * 2;
 
@@ -66,7 +90,11 @@ public class MeshAtlasCombinerEditor : Editor
             return;
         }
 
-        for (int i = 0; i < sources.Count; i++)
+        // Assign UV rects to unique texture slots
+        Vector2[] slotUvScale = new Vector2[uniqueCount];
+        Vector2[] slotUvOffset = new Vector2[uniqueCount];
+
+        for (int i = 0; i < uniqueCount; i++)
         {
             int col = i % gridDim;
             int row = i / gridDim;
@@ -74,14 +102,22 @@ public class MeshAtlasCombinerEditor : Editor
             float uvCellSize = 1f / gridDim;
             float paddingUv = (float)combiner.paddingPixels / combiner.atlasSize;
 
-            sources[i].uvScale = new Vector2(uvCellSize - paddingUv * 2f, uvCellSize - paddingUv * 2f);
-            sources[i].uvOffset = new Vector2(col * uvCellSize + paddingUv, row * uvCellSize + paddingUv);
+            slotUvScale[i] = new Vector2(uvCellSize - paddingUv * 2f, uvCellSize - paddingUv * 2f);
+            slotUvOffset[i] = new Vector2(col * uvCellSize + paddingUv, row * uvCellSize + paddingUv);
         }
 
-        // Build atlas and save them
-        Texture2D baseColorAtlas = BuildAtlas(sources, s => s.baseColor, Color.white, combiner.atlasSize, gridDim, cellPixel, combiner.paddingPixels);
-        Texture2D normalMapAtlas = BuildAtlas(sources, s => s.normalMap, new Color(0.5f, 0.5f, 1f, 1f), combiner.atlasSize, gridDim, cellPixel, combiner.paddingPixels);
-        Texture2D maskMapAtlas = BuildAtlas(sources, s => s.maskMap, Color.white, combiner.atlasSize, gridDim, cellPixel, combiner.paddingPixels);
+        // Map every source to its slot's UV rect (duplicates share the same slot)
+        foreach (SourceObject src in sources)
+        {
+            int slot = textureKeyToSlot[src.textureKey];
+            src.uvScale = slotUvScale[slot];
+            src.uvOffset = slotUvOffset[slot];
+        }
+
+        // Build atlas using only the unique texture set list, and save them
+        Texture2D baseColorAtlas = BuildAtlas(uniqueTextureSources, s => s.baseColor, Color.white, combiner.atlasSize, gridDim, cellPixel, combiner.paddingPixels, linear: false, isNormalMap: false);
+        Texture2D normalMapAtlas = BuildAtlas(uniqueTextureSources, s => s.normalMap, new Color(0.5f, 0.5f, 1f, 1f), combiner.atlasSize, gridDim, cellPixel, combiner.paddingPixels, linear: true, isNormalMap: true);
+        Texture2D maskMapAtlas = BuildAtlas(uniqueTextureSources, s => s.maskMap, Color.white, combiner.atlasSize, gridDim, cellPixel, combiner.paddingPixels, linear: true, isNormalMap: false);
 
         Texture2D savedBaseColor = SaveTextureAsset(baseColorAtlas, combiner.outputFolder, root.name + "_Atlas_BaseColor", isNormalMap: false, isLinear: false);
         Texture2D savedNormalMap = SaveTextureAsset(normalMapAtlas, combiner.outputFolder, root.name + "_Atlas_Normal", isNormalMap: true, isLinear: true);
@@ -182,7 +218,7 @@ public class MeshAtlasCombinerEditor : Editor
         AssetDatabase.SaveAssets();
         EditorUtility.SetDirty(combiner.gameObject);
 
-        Debug.Log($"MeshAtlasCombiner: {sources.Count} objects combined and saved in {combiner.outputFolder}. Atlas {combiner.atlasSize}x{combiner.atlasSize}, grid {gridDim}x{gridDim}.", combiner);
+        Debug.Log($"MeshAtlasCombiner: {sources.Count} objects combined and saved in {combiner.outputFolder}. Atlas {combiner.atlasSize}x{combiner.atlasSize}, grid {gridDim}x{gridDim} ({uniqueCount} unique texture sets).", combiner);
     }
 
     private List<SourceObject> CollectSources(Transform root)
@@ -235,6 +271,12 @@ public class MeshAtlasCombinerEditor : Editor
             src.normalMap = src.material.GetTexture(combiner.normalMapProperty) as Texture2D;
             src.maskMap = src.material.GetTexture(combiner.maskMapProperty) as Texture2D;
 
+            // Build a key from the instance IDs of all 3 textures for deduplication
+            int baseId = src.baseColor != null ? src.baseColor.GetInstanceID() : 0;
+            int normalId = src.normalMap != null ? src.normalMap.GetInstanceID() : 0;
+            int maskId = src.maskMap != null ? src.maskMap.GetInstanceID() : 0;
+            src.textureKey = $"{baseId}_{normalId}_{maskId}";
+
             result.Add(src);
         }
 
@@ -242,7 +284,7 @@ public class MeshAtlasCombinerEditor : Editor
     }
 
    
-    private Texture2D BuildAtlas(List<SourceObject> sources, System.Func<SourceObject, Texture2D> selector, Color fallback, int atlasSize, int gridDim, int cellPixel, int paddingPixels)
+    private Texture2D BuildAtlas(List<SourceObject> sources, System.Func<SourceObject, Texture2D> selector, Color fallback, int atlasSize, int gridDim, int cellPixel, int paddingPixels, bool linear, bool isNormalMap)
     {
         Texture2D atlas = new Texture2D(atlasSize, atlasSize, TextureFormat.RGBA32, true);
 
@@ -268,7 +310,7 @@ public class MeshAtlasCombinerEditor : Editor
                 continue;
             }
 
-            Texture2D resized = ResizeTextureGPU(sourceTex, contentPixel, contentPixel);
+            Texture2D resized = ResizeTextureGPU(sourceTex, contentPixel, contentPixel, linear, isNormalMap);
             atlas.SetPixels(x, y, contentPixel, contentPixel, resized.GetPixels());
             Object.DestroyImmediate(resized);
         }
@@ -277,10 +319,14 @@ public class MeshAtlasCombinerEditor : Editor
         return atlas;
     }
 
-    // Resize texture using GPU (Blit + ReadPixels)
-    private Texture2D ResizeTextureGPU(Texture2D source, int width, int height)
+    // Resize texture using GPU (Blit + ReadPixels).
+    // For normal maps, Unity stores textures internally as DXT5nm/BC5 with swizzled
+    // channels (X in Alpha, Y in Green, R and B are filler ~1.0). After blitting,
+    // we reconstruct standard tangent-space RGB normals from the packed AG channels.
+    private Texture2D ResizeTextureGPU(Texture2D source, int width, int height, bool linear, bool isNormalMap)
     {
-        RenderTexture rt = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+        RenderTextureReadWrite readWrite = linear ? RenderTextureReadWrite.Linear : RenderTextureReadWrite.sRGB;
+        RenderTexture rt = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.ARGB32, readWrite);
         Graphics.Blit(source, rt);
 
         RenderTexture previous = RenderTexture.active;
@@ -293,6 +339,31 @@ public class MeshAtlasCombinerEditor : Editor
         RenderTexture.active = previous;
         RenderTexture.ReleaseTemporary(rt);
 
+        // Reconstruct standard RGB normals from DXT5nm packed channels.
+        // DXT5nm stores: Alpha = X component, Green = Y component.
+        // We derive Z = sqrt(1 - x² - y²) and re-encode to RGB [0,1] range.
+        // The saved atlas PNG will be re-imported as NormalMap, so Unity will
+        // re-encode it to DXT5nm and the shader's UnpackNormal will decode it.
+        if (isNormalMap)
+        {
+            Color[] pixels = result.GetPixels();
+            for (int p = 0; p < pixels.Length; p++)
+            {
+                float nx = pixels[p].a * 2f - 1f;
+                float ny = pixels[p].g * 2f - 1f;
+                float nz = Mathf.Sqrt(Mathf.Max(0f, 1f - nx * nx - ny * ny));
+
+                pixels[p] = new Color(
+                    nx * 0.5f + 0.5f,
+                    ny * 0.5f + 0.5f,
+                    nz * 0.5f + 0.5f,
+                    1f
+                );
+            }
+            result.SetPixels(pixels);
+            result.Apply();
+        }
+
         return result;
     }
 
@@ -301,9 +372,17 @@ public class MeshAtlasCombinerEditor : Editor
         Vector2[] uvs = mesh.uv;
         for (int i = 0; i < uvs.Length; i++)
         {
+            // Wrap UVs into [0,1] range to handle tiling/wrapping textures.
+            // Without this, a UV of e.g. 1.5 would be remapped outside the
+            // atlas cell and sample from a neighboring texture's region.
+            float u = uvs[i].x % 1f;
+            float v = uvs[i].y % 1f;
+            if (u < 0f) u += 1f;
+            if (v < 0f) v += 1f;
+
             uvs[i] = new Vector2(
-                uvs[i].x * uvScale.x + uvOffset.x,
-                uvs[i].y * uvScale.y + uvOffset.y
+                u * uvScale.x + uvOffset.x,
+                v * uvScale.y + uvOffset.y
             );
         }
         mesh.uv = uvs;
@@ -344,3 +423,4 @@ public class MeshAtlasCombinerEditor : Editor
         }
     }
 }
+
